@@ -35,6 +35,10 @@ async function run() {
 
     const teacher = client.db("edurock").collection("teacher");
 
+    const payment = client.db("edurock").collection("payment");
+
+    const rating = client.db("edurock").collection("rating");
+
     app.post('/jwt', async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
@@ -56,6 +60,17 @@ async function run() {
       })
     }
 
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === 'admin';
+      if (!isAdmin) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+      next()
+    }
+
     app.post('/users', async (req, res) => {
       const user = req.body;
       const query = { email: user.email }
@@ -66,6 +81,23 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     })
+
+    app.get('/users', async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.put('/users/:id', async (req, res) => {
+      const { id } = req.params;
+      const { role } = req.body;
+
+      // Update user role in the database
+      const result = await userCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { role } }
+      );
+      res.send(result);
+    });
 
     app.get('/classes', async (req, res) => {
       const result = await courses.find().toArray();
@@ -86,10 +118,72 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/teacher', async (req, res) => {
+    app.get('/teacher', verifyToken, async (req, res) => {
       const result = await teacher.find().toArray();
       res.send(result);
     });
+
+    app.patch('/teacher/approve/:id', verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const filter = { _id: new ObjectId(id) };
+      const update = { $set: { status: 'approved' } };
+      const result = await teacher.updateOne(filter, update);
+      res.send(result);
+    });
+
+    app.patch('/teacher/disapprove/:id', verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const filter = { _id: new ObjectId(id) };
+      const update = { $set: { status: 'disapproved' } };
+      const result = await teacher.updateOne(filter, update);
+      res.send(result);
+    });
+
+    app.post('/payment', verifyToken, async (req, res) => {
+      const item = req.body;
+      const result = await payment.insertOne(item);
+      res.send(result);
+    });
+
+    app.get('/enrolled-class', async (req, res) => {
+      const email = req.query.email; // Get the email from query parameters
+
+      if (!email) {
+        return res.status(400).send("Email is required.");
+      }
+
+      // Find all payment data based on email
+      const paymentDataArray = await payment.find({ email }).toArray();
+
+      if (!paymentDataArray || paymentDataArray.length === 0) {
+        return res.status(404).send("No payment data found for the given email.");
+      }
+
+      // Extract classIds from all payment data
+      const classIds = paymentDataArray.map(payment => payment.classId);
+
+      // Query the courses collection to find details for the given classIds
+      const classes = await courses.find({ _id: { $in: classIds.map(id => new ObjectId(id)) } }).toArray();
+
+      if (classes.length === 0) {
+        return res.status(404).send("No classes found for the given classIds.");
+      }
+
+      // Return the classes data
+      res.json(classes);
+    });
+
+    app.post('/rating', verifyToken, async (req, res) => {
+      const item = req.body;
+      const result = await rating.insertOne(item);
+      res.send(result);
+    });
+
+    app.get('/rating', async (req, res) => {
+      const result = await rating.find().toArray();
+      res.send(result);
+    });
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
