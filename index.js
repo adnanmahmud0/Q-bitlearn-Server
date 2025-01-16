@@ -87,6 +87,12 @@ async function run() {
       res.send(result);
     })
 
+    app.get('/user', async (req, res) => {
+      const query = { email: user.email }
+      const existingUser = await userCollection.findOne(query);
+      res.send(existingUser);
+    })
+
     app.put('/users/:id', async (req, res) => {
       const { id } = req.params;
       const { role } = req.body;
@@ -126,7 +132,7 @@ async function run() {
     app.patch('/teacher/approve/:id', verifyToken, async (req, res) => {
       const { id } = req.params;
       const filter = { _id: new ObjectId(id) };
-      const update = { $set: { status: 'approved' } };
+      const update = { $set: { status: 'Approved' } };
       const result = await teacher.updateOne(filter, update);
       res.send(result);
     });
@@ -134,7 +140,7 @@ async function run() {
     app.patch('/teacher/disapprove/:id', verifyToken, async (req, res) => {
       const { id } = req.params;
       const filter = { _id: new ObjectId(id) };
-      const update = { $set: { status: 'disapproved' } };
+      const update = { $set: { status: 'Reject' } };
       const result = await teacher.updateOne(filter, update);
       res.send(result);
     });
