@@ -105,20 +105,96 @@ async function run() {
       res.send(result);
     });
 
-    app.put('/teacherUsers', async (req, res) => {
+    app.put('/teacherUsers', verifyToken, async (req, res) => {
       const { email } = req.query; // Extract email from query parameters
       const { role } = req.body;  // Extract role from request body
 
-        // Update user role in the database
-        const result = await userCollection.updateOne(
-          { email }, // Match by email
-          { $set: { role } } // Update the role
-        );
+      // Update user role in the database
+      const result = await userCollection.updateOne(
+        { email }, // Match by email
+        { $set: { role } } // Update the role
+      );
     });
-    
+
 
     app.get('/classes', async (req, res) => {
       const result = await courses.find().toArray();
+      res.send(result);
+    });
+
+    app.get('/adminClasses', async (req, res) => {
+      const page = parseInt(req.query.page) || 1; // Default to page 1
+      const limit = parseInt(req.query.limit) || 10; // Default limit
+      const skip = (page - 1) * limit; // Calculate the documents to skip
+
+      // Query to exclude rejected classes
+      const query = { status: { $ne: "reject" } };
+
+      // Sort by status: "pending" first, others next
+      const sortCondition = {
+        status: { $eq: "pending" } // Use MongoDB's `$eq` for sorting
+      };
+
+      const total = await courses.countDocuments(query); // Total number of documents excluding rejected ones
+      const result = await courses
+        .find(query)
+        .sort({ status: -1 }) // Sort so "pending" comes first
+        .skip(skip)
+        .limit(limit)
+        .toArray(); // Paginated data with sorting
+
+      res.send({
+        classes: result, // Paginated classes
+        total, // Total number of classes
+      });
+    });
+
+    app.get('/MyClasses', async (req, res) => {
+      try {
+        const { email } = req.query;
+        const page = parseInt(req.query.page) || 1; // Default to page 1
+        const limit = parseInt(req.query.limit) || 10; // Default to 10 items per page
+        const skip = (page - 1) * limit;
+
+        // Adjusted query based on schema
+        const query = { "teacher.email": email }; // Update to match your schema
+
+        // Count total documents matching the query
+        const total = await courses.countDocuments(query);
+
+        // Fetch the paginated result
+        const result = await courses
+          .find(query)
+          .sort({ status: -1 }) // Optional: Modify based on requirements
+          .skip(skip)
+          .limit(limit)
+          .toArray();
+
+        // Return paginated data
+        res.send({
+          classes: result, // Array of classes
+          total,           // Total number of classes matching query
+        });
+      } catch (error) {
+        console.error("Error fetching classes:", error.message);
+        res.status(500).send({ error: "An error occurred while fetching classes." });
+      }
+    });
+
+
+    app.patch('/adminClasses/approve/:id', verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const filter = { _id: new ObjectId(id) };
+      const update = { $set: { status: 'approved' } };
+      const result = await courses.updateOne(filter, update);
+      res.send(result);
+    });
+
+    app.patch('/adminClasses/disapprove/:id', verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const filter = { _id: new ObjectId(id) };
+      const update = { $set: { status: 'reject' } };
+      const result = await courses.updateOne(filter, update);
       res.send(result);
     });
 
