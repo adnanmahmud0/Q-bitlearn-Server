@@ -46,7 +46,6 @@ async function run() {
     })
 
     const verifyToken = (req, res, next) => {
-      // console.log('inside verify token', req.headers.authorization);
       if (!req.headers.authorization) {
         return res.status(401).send({ message: 'unauthorized access' });
       }
@@ -88,7 +87,8 @@ async function run() {
     })
 
     app.get('/user', async (req, res) => {
-      const query = { email: user.email }
+      const email = req.query.email; // Extract 'email' from the query parameters
+      const query = { email };
       const existingUser = await userCollection.findOne(query);
       res.send(existingUser);
     })
@@ -105,18 +105,35 @@ async function run() {
       res.send(result);
     });
 
+    app.put('/teacherUsers', async (req, res) => {
+      const { email } = req.query; // Extract email from query parameters
+      const { role } = req.body;  // Extract role from request body
+
+        // Update user role in the database
+        const result = await userCollection.updateOne(
+          { email }, // Match by email
+          { $set: { role } } // Update the role
+        );
+    });
+    
+
     app.get('/classes', async (req, res) => {
       const result = await courses.find().toArray();
       res.send(result);
     });
 
     app.get('/class/:id', async (req, res) => {
-
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await courses.findOne(query);
       res.send(result);
     });
+
+    app.post('/class', async (req, res) => {
+      const item = req.body;
+      const result = await courses.insertOne(item);
+      res.send(result);
+    })
 
     app.post('/teacher', async (req, res) => {
       const item = req.body;
@@ -154,29 +171,16 @@ async function run() {
     app.get('/enrolled-class', async (req, res) => {
       const email = req.query.email; // Get the email from query parameters
 
-      if (!email) {
-        return res.status(400).send("Email is required.");
-      }
-
-      // Find all payment data based on email
       const paymentDataArray = await payment.find({ email }).toArray();
-
-      if (!paymentDataArray || paymentDataArray.length === 0) {
-        return res.status(404).send("No payment data found for the given email.");
-      }
 
       // Extract classIds from all payment data
       const classIds = paymentDataArray.map(payment => payment.classId);
 
       // Query the courses collection to find details for the given classIds
-      const classes = await courses.find({ _id: { $in: classIds.map(id => new ObjectId(id)) } }).toArray();
-
-      if (classes.length === 0) {
-        return res.status(404).send("No classes found for the given classIds.");
-      }
+      const result = await courses.find({ _id: { $in: classIds.map(id => new ObjectId(id)) } }).toArray();
 
       // Return the classes data
-      res.json(classes);
+      res.send(result);
     });
 
     app.post('/rating', verifyToken, async (req, res) => {
