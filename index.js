@@ -67,8 +67,19 @@ async function run() {
       const email = req.decoded.email;
       const query = { email: email };
       const user = await userCollection.findOne(query);
-      const isAdmin = user?.role === 'admin';
+      const isAdmin = user?.role === 'Admin';
       if (!isAdmin) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+      next()
+    }
+
+    const verifyTeacher = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isTeacher = user?.role === 'Teacher';
+      if (!isTeacher) {
         return res.status(403).send({ message: 'forbidden access' });
       }
       next()
@@ -85,12 +96,14 @@ async function run() {
       res.send(result);
     })
 
-    app.get('/users', async (req, res) => {
+    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     })
 
-    app.get('/numberUsers', async (req, res) => {
+
+
+    app.get('/numberUsers', verifyToken, async (req, res) => {
       try {
         const result = await userCollection.countDocuments();
         res.status(200).send({ count: result });
@@ -100,14 +113,42 @@ async function run() {
       }
     });
 
-    app.get('/user', async (req, res) => {
+    app.get('/users/admin/:email', verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.params.email) {
+        return res.status(403).send({ message: 'unauthorize access' })
+      }
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let admin = false;
+      if (user) {
+        admin = user?.role === 'Admin';
+      }
+      res.send({ admin })
+    })
+
+    app.get('/users/teacher/:email', verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.params.email) {
+        return res.status(403).send({ message: 'unauthorize access' })
+      }
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let teacher = false;
+      if (user) {
+        teacher = user?.role === 'Teacher';
+      }
+      res.send({ teacher })
+    })
+
+    app.get('/user', verifyToken, async (req, res) => {
       const email = req.query.email; // Extract 'email' from the query parameters
       const query = { email };
       const existingUser = await userCollection.findOne(query);
       res.send(existingUser);
     })
 
-    app.put('/users/:id', async (req, res) => {
+    app.put('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
       const { role } = req.body;
 
@@ -119,7 +160,7 @@ async function run() {
       res.send(result);
     });
 
-    app.put('/teacherUsers', verifyToken, async (req, res) => {
+    app.put('/teacherUsers', verifyToken, verifyAdmin, async (req, res) => {
       const { email } = req.query; // Extract email from query parameters
       const { role } = req.body;  // Extract role from request body
 
@@ -132,9 +173,25 @@ async function run() {
 
 
     app.get('/classes', async (req, res) => {
-      const result = await courses.find().toArray();
-      res.send(result);
+      try {
+        const page = parseInt(req.query.page) || 1; // Default to page 1
+        const limit = parseInt(req.query.limit) || 10; // Default to 10 items per page
+        const skip = (page - 1) * limit; // Calculate the number of documents to skip
+
+        const totalItems = await courses.countDocuments(); // Get total number of items
+        const classes = await courses.find().skip(skip).limit(limit).toArray(); // Fetch paginated items
+
+        res.json({
+          data: classes,
+          currentPage: page,
+          totalPages: Math.ceil(totalItems / limit),
+          totalItems,
+        });
+      } catch (error) {
+        res.status(500).json({ error: "Failed to fetch classes" });
+      }
     });
+
 
     app.get('/mostEnrollClasses', async (req, res) => {
       const result = await courses.find()
@@ -143,9 +200,9 @@ async function run() {
         .toArray();
       res.send(result);
     });
-    
 
-    app.get('/adminClasses', async (req, res) => {
+
+    app.get('/adminClasses', verifyToken, verifyAdmin, async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to page 1
       const limit = parseInt(req.query.limit) || 10; // Default limit
       const skip = (page - 1) * limit; // Calculate the documents to skip
@@ -172,7 +229,7 @@ async function run() {
       });
     });
 
-    app.get('/MyClasses', async (req, res) => {
+    app.get('/MyClasses', verifyToken, verifyTeacher, async (req, res) => {
       try {
         const { email } = req.query;
         const page = parseInt(req.query.page) || 1; // Default to page 1
@@ -205,7 +262,7 @@ async function run() {
     });
 
 
-    app.delete('/deleteMyClasses/:id', verifyToken, async (req, res) => {
+    app.delete('/deleteMyClasses/:id', verifyToken, verifyTeacher, async (req, res) => {
       const { id } = req.params;
       const filter = { _id: new ObjectId(id) };
       const result = await courses.deleteOne(filter);
@@ -213,7 +270,7 @@ async function run() {
     });
 
 
-    app.patch('/adminClasses/approve/:id', verifyToken, async (req, res) => {
+    app.patch('/adminClasses/approve/:id', verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
       const filter = { _id: new ObjectId(id) };
       const update = { $set: { status: 'approved' } };
@@ -221,7 +278,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch('/adminClasses/disapprove/:id', verifyToken, async (req, res) => {
+    app.patch('/adminClasses/disapprove/:id', verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
       const filter = { _id: new ObjectId(id) };
       const update = { $set: { status: 'reject' } };
@@ -229,14 +286,14 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/class/:id', async (req, res) => {
+    app.get('/class/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await courses.findOne(query);
       res.send(result);
     });
 
-    app.put('/class/:id', async (req, res) => {
+    app.put('/class/:id', verifyToken, verifyTeacher, async (req, res) => {
       const id = req.params.id;
       const updatedData = req.body;
 
@@ -252,7 +309,7 @@ async function run() {
 
     });
 
-    app.patch('/class/:id', async (req, res) => {
+    app.patch('/class/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const data = await courses.findOne(filter);
@@ -266,24 +323,24 @@ async function run() {
     })
 
 
-    app.post('/class', async (req, res) => {
+    app.post('/class', verifyToken, verifyTeacher, async (req, res) => {
       const item = req.body;
       const result = await courses.insertOne(item);
       res.send(result);
     })
 
-    app.post('/teacher', async (req, res) => {
+    app.post('/teacher', verifyToken, async (req, res) => {
       const item = req.body;
       const result = await teacher.insertOne(item);
       res.send(result);
     });
 
-    app.get('/teacher', verifyToken, async (req, res) => {
+    app.get('/teacher', verifyToken, verifyAdmin, async (req, res) => {
       const result = await teacher.find().toArray();
       res.send(result);
     });
 
-    app.patch('/teacher/approve/:id', verifyToken, async (req, res) => {
+    app.patch('/teacher/approve/:id', verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
       const filter = { _id: new ObjectId(id) };
       const update = { $set: { status: 'Approved' } };
@@ -291,7 +348,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch('/teacher/disapprove/:id', verifyToken, async (req, res) => {
+    app.patch('/teacher/disapprove/:id', verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
       const filter = { _id: new ObjectId(id) };
       const update = { $set: { status: 'Reject' } };
@@ -349,7 +406,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/enrolled-class', async (req, res) => {
+    app.get('/enrolled-class', verifyToken, async (req, res) => {
       const email = req.query.email; // Get the email from query parameters
 
       const paymentDataArray = await payment.find({ email }).toArray();
