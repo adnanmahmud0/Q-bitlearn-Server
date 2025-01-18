@@ -85,6 +85,17 @@ async function run() {
       next()
     }
 
+    const verifyUser = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isUser = user?.role === 'User';
+      if (!isUser) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+      next()
+    }
+
     app.post('/users', async (req, res) => {
       const user = req.body;
       const query = { email: user.email }
@@ -101,7 +112,14 @@ async function run() {
       res.send(result);
     })
 
-
+    app.get('/user',  async (req, res) => {
+        // Assuming email is passed via query string, e.g., /user?email=example@gmail.com
+        const email = req.query.email;
+        // Find a single user by email
+        const user = await userCollection.findOne({ email: email });
+        // Send only the role
+        res.send(user.role);
+    });
 
     app.get('/numberUsers', verifyToken, async (req, res) => {
       try {
@@ -137,6 +155,20 @@ async function run() {
       let teacher = false;
       if (user) {
         teacher = user?.role === 'Teacher';
+      }
+      res.send({ teacher })
+    })
+
+    app.get('/users/user/:email', verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.params.email) {
+        return res.status(403).send({ message: 'unauthorize access' })
+      }
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let teacher = false;
+      if (user) {
+        teacher = user?.role === 'User';
       }
       res.send({ teacher })
     })
