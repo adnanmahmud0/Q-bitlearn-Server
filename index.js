@@ -90,6 +90,16 @@ async function run() {
       res.send(result);
     })
 
+    app.get('/numberUsers', async (req, res) => {
+      try {
+        const result = await userCollection.countDocuments();
+        res.status(200).send({ count: result });
+      } catch (error) {
+        console.error('Error fetching user count:', error);
+        res.status(500).send({ error: 'Failed to fetch user count' });
+      }
+    });
+
     app.get('/user', async (req, res) => {
       const email = req.query.email; // Extract 'email' from the query parameters
       const query = { email };
@@ -125,6 +135,15 @@ async function run() {
       const result = await courses.find().toArray();
       res.send(result);
     });
+
+    app.get('/mostEnrollClasses', async (req, res) => {
+      const result = await courses.find()
+        .sort({ "totalEnrollment": -1 })  // Sort by totalEnrollment in descending order
+        .limit(10)  // Limit to 6 records
+        .toArray();
+      res.send(result);
+    });
+    
 
     app.get('/adminClasses', async (req, res) => {
       const page = parseInt(req.query.page) || 1; // Default to page 1
