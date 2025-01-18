@@ -39,6 +39,10 @@ async function run() {
 
     const rating = client.db("edurock").collection("rating");
 
+    const assignment = client.db("edurock").collection("assignment");
+
+    const submitedAssingment = client.db("edurock").collection("submitedAssingment");
+
     app.post('/jwt', async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
@@ -182,6 +186,14 @@ async function run() {
     });
 
 
+    app.delete('/deleteMyClasses/:id', verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const filter = { _id: new ObjectId(id) };
+      const result = await courses.deleteOne(filter);
+      res.send(result);
+    });
+
+
     app.patch('/adminClasses/approve/:id', verifyToken, async (req, res) => {
       const { id } = req.params;
       const filter = { _id: new ObjectId(id) };
@@ -204,6 +216,36 @@ async function run() {
       const result = await courses.findOne(query);
       res.send(result);
     });
+
+    app.put('/class/:id', async (req, res) => {
+      const id = req.params.id;
+      const updatedData = req.body;
+
+      // Create the query object to find the class by its ID
+      const query = { _id: new ObjectId(id) };
+
+
+      const result = await courses.updateOne(query, {
+        $set: updatedData,
+      });
+
+      res.send({ message: 'Class updated successfully', data: updatedData });
+
+    });
+
+    app.patch('/class/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const data = await courses.findOne(filter);
+      const enrol = data.totalEnrollment;
+      const newEnrol = enrol + 1;
+      const result = await courses.updateOne(
+        filter,
+        { $set: { totalEnrollment: newEnrol } }
+      );
+      res.send(result);
+    })
+
 
     app.post('/class', async (req, res) => {
       const item = req.body;
@@ -235,6 +277,50 @@ async function run() {
       const filter = { _id: new ObjectId(id) };
       const update = { $set: { status: 'Reject' } };
       const result = await teacher.updateOne(filter, update);
+      res.send(result);
+    });
+
+    app.get('/assignment/:id', verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const query = { "classId": id };
+      const result = await assignment.find(query).toArray();
+      res.send(result);
+    });
+
+    app.post('/assignment', verifyToken, async (req, res) => {
+      const item = req.body;
+      const result = await assignment.insertOne(item);
+      res.send(result);
+    })
+
+    app.delete('/assignment/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const result = await assignment.deleteOne(filter);
+      res.send(result);
+    });
+
+    app.put('/assignment/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const updatedAssignment = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updatedAssignment,
+      };
+      const result = await assignment.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    app.post('/submit-assignment', verifyToken, async (req, res) => {
+      const item = req.body;
+      const result = await submitedAssingment.insertOne(item);
+      res.send(result);
+    })
+
+    app.get('/total-submit-assignment/:id', verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const query = { "courseId": id };
+      const result = await assignment.find(query).toArray();
       res.send(result);
     });
 
