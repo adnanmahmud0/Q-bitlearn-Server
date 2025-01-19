@@ -27,7 +27,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const userCollection = client.db("edurock").collection("user");
 
@@ -112,13 +112,13 @@ async function run() {
       res.send(result);
     })
 
-    app.get('/user',  async (req, res) => {
-        // Assuming email is passed via query string, e.g., /user?email=example@gmail.com
-        const email = req.query.email;
-        // Find a single user by email
-        const user = await userCollection.findOne({ email: email });
-        // Send only the role
-        res.send(user.role);
+    app.get('/user', async (req, res) => {
+      // Assuming email is passed via query string, e.g., /user?email=example@gmail.com
+      const email = req.query.email;
+      // Find a single user by email
+      const user = await userCollection.findOne({ email: email });
+      // Send only the role
+      res.send(user.role);
     });
 
     app.get('/numberUsers', verifyToken, async (req, res) => {
@@ -136,12 +136,14 @@ async function run() {
       if (email !== req.params.email) {
         return res.status(403).send({ message: 'unauthorize access' })
       }
+      console.log(email)
       const query = { email: email };
       const user = await userCollection.findOne(query);
       let admin = false;
       if (user) {
         admin = user?.role === 'Admin';
       }
+      console.log(admin);
       res.send({ admin })
     })
 
@@ -160,18 +162,13 @@ async function run() {
     })
 
     app.get('/users/user/:email', verifyToken, async (req, res) => {
-      const email = req.params.email;
-      if (email !== req.params.email) {
-        return res.status(403).send({ message: 'unauthorize access' })
-      }
-      const query = { email: email };
-      const user = await userCollection.findOne(query);
-      let teacher = false;
-      if (user) {
-        teacher = user?.role === 'User';
-      }
-      res.send({ teacher })
-    })
+        const email = req.params.email;
+        const query = { email: email };
+        const userDocument = await userCollection.findOne(query);
+        const user = userDocument?.role === 'User';
+        console.log(user);
+        res.send({ user });
+    });
 
     app.get('/user', verifyToken, async (req, res) => {
       const email = req.query.email; // Extract 'email' from the query parameters
@@ -438,7 +435,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/enrolled-class', verifyToken, async (req, res) => {
+    app.get('/enrolled-class', verifyToken, verifyUser, async (req, res) => {
       const email = req.query.email; // Get the email from query parameters
 
       const paymentDataArray = await payment.find({ email }).toArray();
@@ -466,8 +463,8 @@ async function run() {
 
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
