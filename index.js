@@ -107,8 +107,16 @@ async function run() {
       res.send(result);
     })
 
-    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
-      const result = await userCollection.find().toArray();
+    app.get('/users', async (req, res) => {
+      const search = req.query.search;
+      console.log(search);
+      let query = {
+        email: {
+          $regex: search,
+          $options: "i",
+        },
+      };
+      const result = await userCollection.find(query).toArray();
       res.send(result);
     })
 
@@ -121,7 +129,7 @@ async function run() {
       res.send(user.role);
     });
 
-    app.get('/numberUsers', verifyToken, async (req, res) => {
+    app.get('/numberUsers', async (req, res) => {
       try {
         const result = await userCollection.countDocuments();
         res.status(200).send({ count: result });
@@ -130,6 +138,37 @@ async function run() {
         res.status(500).send({ error: 'Failed to fetch user count' });
       }
     });
+    app.get('/numberClasses', async (req, res) => {
+      try {
+        const result = await courses.countDocuments();
+        res.status(200).send({ count: result });
+      } catch (error) {
+        console.error('Error fetching user count:', error);
+        res.status(500).send({ error: 'Failed to fetch user count' });
+      }
+    });
+
+    app.get('/numberEnroll', async (req, res) => {
+      try {
+        const result = await payment.countDocuments();
+        res.status(200).send({ count: result });
+      } catch (error) {
+        console.error('Error fetching user count:', error);
+        res.status(500).send({ error: 'Failed to fetch user count' });
+      }
+    });
+
+    app.get('/numberTeacher', async (req, res) => {
+      try {
+        const result = await teacher.countDocuments();
+        res.status(200).send({ count: result });
+      } catch (error) {
+        console.error('Error fetching user count:', error);
+        res.status(500).send({ error: 'Failed to fetch user count' });
+      }
+    });
+
+    
 
     app.get('/users/admin/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
