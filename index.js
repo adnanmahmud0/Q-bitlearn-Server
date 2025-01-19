@@ -168,7 +168,7 @@ async function run() {
       }
     });
 
-    
+
 
     app.get('/users/admin/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
@@ -201,12 +201,12 @@ async function run() {
     })
 
     app.get('/users/user/:email', verifyToken, async (req, res) => {
-        const email = req.params.email;
-        const query = { email: email };
-        const userDocument = await userCollection.findOne(query);
-        const user = userDocument?.role === 'User';
-        console.log(user);
-        res.send({ user });
+      const email = req.params.email;
+      const query = { email: email };
+      const userDocument = await userCollection.findOne(query);
+      const user = userDocument?.role === 'User';
+      console.log(user);
+      res.send({ user });
     });
 
     app.get('/user', verifyToken, async (req, res) => {
@@ -245,11 +245,12 @@ async function run() {
         const page = parseInt(req.query.page) || 1; // Default to page 1
         const limit = parseInt(req.query.limit) || 10; // Default to 10 items per page
         const skip = (page - 1) * limit; // Calculate the number of documents to skip
-
-        const totalItems = await courses.countDocuments(); // Get total number of items
-        const classes = await courses.find().skip(skip).limit(limit).toArray(); // Fetch paginated items
-
+        const query = { "status": "approved" }; // Filter for approved classes
+        const totalItems = await courses.countDocuments(query); // Get total number of approved classes
+        const classes = await courses.find(query).skip(skip).limit(limit).toArray(); // Fetch paginated approved classes
+    
         res.json({
+          query: query,
           data: classes,
           currentPage: page,
           totalPages: Math.ceil(totalItems / limit),
@@ -259,6 +260,7 @@ async function run() {
         res.status(500).json({ error: "Failed to fetch classes" });
       }
     });
+    
 
 
     app.get('/mostEnrollClasses', async (req, res) => {
@@ -461,11 +463,22 @@ async function run() {
       res.send(result);
     })
 
-    app.get('/total-submit-assignment/:id', verifyToken, async (req, res) => {
+    app.get('/total-submit-assignment/:id', async (req, res) => {
       const { id } = req.params;
       const query = { "courseId": id };
-      const result = await assignment.find(query).toArray();
-      res.send(result);
+      // Get the count of submissions
+      const count = await submitedAssingment.countDocuments(query);
+      // Return only the count
+      res.send({ count });
+    });
+
+    app.get('/total-submit-userAssignment/:id', async (req, res) => {
+      const { id } = req.params;
+      const query = { "courseId": id };
+      // Get the count of submissions
+      const count = await submitedAssingment.countDocuments(query);
+      // Return only the count
+      res.send({ count });
     });
 
     app.post('/payment', verifyToken, async (req, res) => {
