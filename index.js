@@ -108,17 +108,31 @@ async function run() {
     })
 
     app.get('/users', async (req, res) => {
-      const search = req.query.search;
-      console.log(search);
-      let query = {
+      const { search, page = 1, limit = 10 } = req.query;
+      console.log(search, page, limit);
+
+      const query = {
         email: {
           $regex: search,
           $options: "i",
         },
       };
-      const result = await userCollection.find(query).toArray();
-      res.send(result);
-    })
+
+      const users = await userCollection
+        .find(query)
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit))
+        .toArray();
+
+      const totalUsers = await userCollection.countDocuments(query);
+
+      res.send({
+        users,
+        totalPages: Math.ceil(totalUsers / limit),
+        currentPage: parseInt(page),
+      });
+    });
+
 
     app.get('/user', async (req, res) => {
       // Assuming email is passed via query string, e.g., /user?email=example@gmail.com
@@ -248,7 +262,7 @@ async function run() {
         const query = { "status": "approved" }; // Filter for approved classes
         const totalItems = await courses.countDocuments(query); // Get total number of approved classes
         const classes = await courses.find(query).skip(skip).limit(limit).toArray(); // Fetch paginated approved classes
-    
+
         res.json({
           query: query,
           data: classes,
@@ -260,7 +274,7 @@ async function run() {
         res.status(500).json({ error: "Failed to fetch classes" });
       }
     });
-    
+
 
 
     app.get('/mostEnrollClasses', async (req, res) => {
@@ -406,9 +420,19 @@ async function run() {
     });
 
     app.get('/teacher', verifyToken, verifyAdmin, async (req, res) => {
-      const result = await teacher.find().toArray();
-      res.send(result);
-    });
+      const { page = 1, limit = 10 } = req.query; // Default to page 1 and limit 10
+  
+      const skip = (page - 1) * limit;
+      const teachers = await teacher.find().skip(skip).limit(parseInt(limit)).toArray();
+      const totalTeachers = await teacher.countDocuments(); // Get the total number of teachers
+  
+      res.send({
+          teachers,
+          totalPages: Math.ceil(totalTeachers / limit), // Calculate the total pages
+          currentPage: page
+      });
+  });
+  
 
     app.patch('/teacher/approve/:id', verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
@@ -488,19 +512,23 @@ async function run() {
     });
 
     app.get('/enrolled-class', verifyToken, verifyUser, async (req, res) => {
-      const email = req.query.email; // Get the email from query parameters
+      const email = req.query.email;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
 
-      const paymentDataArray = await payment.find({ email }).toArray();
-
-      // Extract classIds from all payment data
+      const skip = (page - 1) * limit;
+      const totalPayments = await payment.find({ email }).count();
+      const paymentDataArray = await payment.find({ email }).skip(skip).limit(limit).toArray();
       const classIds = paymentDataArray.map(payment => payment.classId);
-
-      // Query the courses collection to find details for the given classIds
       const result = await courses.find({ _id: { $in: classIds.map(id => new ObjectId(id)) } }).toArray();
 
-      // Return the classes data
-      res.send(result);
+      res.send({
+        data: result,
+        totalPages: Math.ceil(totalPayments / limit),
+        currentPage: page
+      });
     });
+
 
     app.post('/rating', verifyToken, async (req, res) => {
       const item = req.body;
