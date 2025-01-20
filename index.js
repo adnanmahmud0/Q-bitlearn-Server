@@ -280,7 +280,7 @@ async function run() {
     app.get('/mostEnrollClasses', async (req, res) => {
       const result = await courses.find()
         .sort({ "totalEnrollment": -1 })  // Sort by totalEnrollment in descending order
-        .limit(10)  // Limit to 6 records
+        .limit(6)  // Limit to 6 records
         .toArray();
       res.send(result);
     });
@@ -498,7 +498,7 @@ async function run() {
 
     app.get('/total-submit-userAssignment/:id', async (req, res) => {
       const { id } = req.params;
-      const query = { "courseId": id };
+      const query = { "assignmentId": id };
       // Get the count of submissions
       const count = await submitedAssingment.countDocuments(query);
       // Return only the count
