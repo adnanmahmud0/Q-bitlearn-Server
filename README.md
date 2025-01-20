@@ -3,8 +3,8 @@
 Q-bitlearn is a dynamic and user-friendly MERN stack platform designed to revolutionize how educational institutions, tutors, and students interact. It aims to make skill learning and class management more efficient and accessible than ever before.
 
 ## Admin Credentials
-- **Admin Email:** [Your Admin Email]
-- **Admin Password:** [Your Admin Password]
+- **Admin Email:** adnanmahmud@gmail.com
+- **Admin Password:** Adnan@1
 
 ## Live Website
 Visit the live website: [Q-bitlearn](https://q-bitlearn.web.app/)
