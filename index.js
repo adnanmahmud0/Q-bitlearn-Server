@@ -256,22 +256,15 @@ async function run() {
 
     app.get('/classes', async (req, res) => {
       try {
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const limit = Math.max(1, parseInt(req.query.limit) || 10);
-        const skip = (page - 1) * limit;
-        const sortOrder = req.query.sort === "desc" ? -1 : 1; // Default to ascending
-    
-        const query = { "status": "approved" };
-        const totalItems = await courses.countDocuments(query);
-        const classes = await courses
-          .find(query)
-          .sort({ price: sortOrder }) // Sort by price dynamically
-          .skip(skip)
-          .limit(limit)
-          .toArray();
-    
+        const page = parseInt(req.query.page) || 1; // Default to page 1
+        const limit = parseInt(req.query.limit) || 10; // Default to 10 items per page
+        const skip = (page - 1) * limit; // Calculate the number of documents to skip
+        const query = { "status": "approved" }; // Filter for approved classes
+        const totalItems = await courses.countDocuments(query); // Get total number of approved classes
+        const classes = await courses.find(query).skip(skip).limit(limit).toArray(); // Fetch paginated approved classes
+
         res.json({
-          query,
+          query: query,
           data: classes,
           currentPage: page,
           totalPages: Math.ceil(totalItems / limit),
@@ -281,7 +274,6 @@ async function run() {
         res.status(500).json({ error: "Failed to fetch classes" });
       }
     });
-    
 
 
 
